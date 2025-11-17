@@ -1,13 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>도면 정보</title>
-  <meta http-equiv="refresh" content="0; url=item_public.html">
+  <meta charset="utf-8">
+  <title>SWCHP Drawing QR Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           margin: 20px; color: #222; }
+    .wrap { max-width: 600px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p { font-size: 14px; color: #555; }
+    label { font-size: 14px; font-weight: 600; display: block; margin-top: 16px; margin-bottom: 4px; }
+    input[type="text"] {
+      width: 100%; padding: 8px 10px; font-size: 14px;
+      border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
+    }
+    button {
+      margin-top: 12px; padding: 8px 14px; font-size: 14px;
+      border-radius: 999px; border: none; cursor: pointer;
+      background: #2563eb; color: #fff;
+    }
+    button:hover { opacity: .9; }
+    .hint { font-size: 12px; color: #777; margin-top: 4px; }
+    .box {
+      margin-top: 24px; padding: 12px; border-radius: 8px;
+      border: 1px solid #e5e5e5; background: #fafafa;
+      font-size: 13px; color: #444;
+    }
+  </style>
 </head>
 <body>
-<script>
-   window.location.href = "item_public.html";
-</script>
+  <div class="wrap">
+    <h1>SWCHP QR 도면 조회</h1>
+    <p>도면 번호를 입력하거나, QR 코드에서 사용하는 URL 형식을 테스트할 수 있는 페이지입니다.</p>
+
+    <label for="docId">도면 번호 (예: MZ-000-CCX-CO-MTH-44073)</label>
+    <input id="docId" type="text" placeholder="Doc.No 또는 ID를 입력하세요">
+    <div class="hint">※ QR 코드는 <code>item_public.html?id=도면번호</code> 형식으로 연결됩니다.</div>
+
+    <button onclick="goToItem()">상세 페이지 열기</button>
+
+    <div class="box">
+      <b>QR에 들어갈 예시 URL</b><br>
+      <code id="exampleUrl"></code>
+    </div>
+  </div>
+
+  <script>
+    function buildExample() {
+      const base = window.location.origin + window.location.pathname.replace(/index\.html?$/,'');
+      const sampleId = "MZ-000-CCX-CO-MTH-44073";
+      document.getElementById("exampleUrl").textContent =
+        base.replace(/\/$/,'') + "/item_public.html?id=" + encodeURIComponent(sampleId);
+    }
+
+    function goToItem() {
+      const input = document.getElementById("docId");
+      const id = (input.value || "").trim();
+      if (!id) {
+        alert("도면 번호를 입력하세요.");
+        input.focus();
+        return;
+      }
+      const url = "item_public.html?id=" + encodeURIComponent(id);
+      window.location.href = url;
+    }
+
+    buildExample();
+  </script>
 </body>
 </html>
