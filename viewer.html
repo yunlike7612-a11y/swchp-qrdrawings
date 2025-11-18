@@ -25,6 +25,16 @@
       font-weight: 700;
     }
 
+    /* 정보 박스 */
+    .info-box {
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      margin-bottom: 20px;
+    }
+    .info-box div { margin: 4px 0; }
+
     /* PDF Viewer */
     .pdf-wrap {
       position: relative;
@@ -41,34 +51,25 @@
       border: none;
     }
 
-    /* Watermark Layer */
+    /* 워터마크 레이어 */
     .pdf-watermark {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%) rotate(-25deg);
-      font-size: 42px;
+      font-size: 38px;
       font-weight: 800;
-      opacity: 0.13;
+      opacity: 0.15;
       pointer-events: none;
       white-space: nowrap;
       user-select: none;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
+      text-align: center;
     }
 
-    .ok { color: #0f893a; }   /* Controlled / Current */
-    .warn { color: #a86b00; } /* Review / Draft */
+    .ok { color: #0f893a; }   /* Current / Final Approved */
+    .warn { color: #a86b00; } /* Review / Draft / Internal */
     .err { color: #b10000; }  /* Superseded / Void */
-
-    /* Info Box */
-    .info-box {
-      padding: 12px 16px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #fff;
-      margin-bottom: 20px;
-    }
-    .info-box div { margin: 4px 0; }
   </style>
 </head>
 
@@ -91,28 +92,97 @@
 
 <script>
 /* ------------------------------------------------
-   1. URL에서 id 값 가져오기
+   1. URL에서 id 값 가져오기 (viewer.html?id=95)
 ------------------------------------------------ */
 const params = new URLSearchParams(window.location.search);
-const drawingId = params.get("id");  // viewer.html?id=95 형태
+const drawingId = params.get("id");
 
 if (!drawingId) {
-  alert("⚠ 도면 ID가 전달되지 않았습니다. ?id=숫자 형태로 접근해야 합니다.");
+  alert("⚠ 도면 ID가 전달되지 않았습니다. URL에 ?id=숫자를 붙여 주세요.");
 }
 
 /* ------------------------------------------------
-   2. JSON에서 데이터 로드
+   2. DrawingsRegistry.json 로드
 ------------------------------------------------ */
 fetch("DrawingsRegistry.json")
   .then(res => res.json())
   .then(json => {
-    const data = json.find(x => x.ID == drawingId);
+    const data = json.find(x => String(x.ID) === String(drawingId));
     if (!data) {
-      alert("⚠ JSON에서 해당 도면을 찾지 못했습니다.");
+      alert("⚠ JSON에서 해당 도면(ID=" + drawingId + ")을 찾지 못했습니다.");
       return;
     }
     renderPage(data);
   })
   .catch(err => {
     console.error(err);
-    alert("
+    alert("JSON 로딩 중 오류가 발생했습니다.");
+  });
+
+/* ------------------------------------------------
+   3. 메타데이터 / PDF 출력
+------------------------------------------------ */
+function renderPage(d) {
+  // 메타데이터 표시
+  const infoBox = document.getElementById("infoBox");
+  infoBox.style.display = "block";
+  document.getElementById("dNo").textContent = d.DrawingNo ?? "-";
+  document.getElementById("dRev").textContent = d.Rev ?? "-";
+  document.getElementById("dStatus").textContent = d.Status ?? "-";
+  document.getElementById("dCurrent").textContent = d.Current ?? "-";
+
+  // PDF URL
+  const pdfUrl = d.FileUrl || d.PDF || d.Path || "";
+  if (!pdfUrl) {
+    alert("⚠ PDF 파일 경로(FileUrl 또는 PDF/Path)를 JSON에 추가해야 합니다.");
+  }
+  document.getElementById("pdfFrame").src = pdfUrl;
+
+  // 워터마크
+  renderWatermark(d);
+}
+
+/* ------------------------------------------------
+   4. 워터마크 로직
+   - Current = "Yes"  → "Final Approved for Construction"
+   - 그 외 Status 값에 따라 SUPERSEDED / VOID / FOR REVIEW / INTERNAL USE ONLY
+------------------------------------------------ */
+function renderWatermark(d) {
+  const wm = document.getElementById("pdfWatermark");
+
+  let text = "INTERNAL USE ONLY";
+  let cls = "warn";
+
+  const status = (d.Status || "").toLowerCase();
+  const current = (d.Current || "").toLowerCase();
+
+  // ✅ 핵심 조건: Current = "Yes"
+  if (current === "yes") {
+    text = "Final Approved for Construction";
+    cls = "ok";
+
+  } else if (status === "superseded") {
+    text = "SUPERSEDED";
+    cls = "err";
+
+  } else if (status === "void") {
+    text = "VOID";
+    cls = "err";
+
+  } else if (status.includes("review") || status.includes("draft")) {
+    text = "FOR REVIEW";
+    cls = "warn";
+
+  } else {
+    text = "INTERNAL USE ONLY";
+    cls = "warn";
+  }
+
+  wm.textContent = text;
+  wm.classList.remove("ok", "warn", "err");
+  wm.classList.add(cls);
+}
+</script>
+
+</body>
+</html>
