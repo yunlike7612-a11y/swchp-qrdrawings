@@ -111,10 +111,11 @@
         }
 
         // 필드 꺼내기
-        const drawingNo = item.DrawingNo;
-        const revVal    = item.Rev;
-        const title     = item.Title;
-        const isLatest  = item.Current === true;
+        const drawingNo    = item.DrawingNo;
+        const revVal       = item.Rev;
+        const title        = item.Title;
+        const isLatest     = item.Current === true;
+        const approvedDate = item.ApprovedDate;   // ✅ 추가
 
         const badgeClass = isLatest ? "ok" : "warn";
         const badgeText  = isLatest ? "LATEST" : "NOT LATEST";
@@ -137,6 +138,9 @@
 
               <dt>Status (Current)</dt>
               <dd>${isLatest ? "Latest revision" : "Superseded"}</dd>
+
+              <dt>Approved Date</dt>
+              <dd>${textOrDash(approvedDate)}</dd>
             </dl>
 
             <div class="small">
@@ -160,3 +164,5 @@
   </script>
 </body>
 </html>
+
+
