@@ -67,9 +67,9 @@
       text-align: center;
     }
 
-    .ok { color: #0f893a; }   /* Current / Final Approved */
-    .warn { color: #a86b00; } /* Review / Draft / Internal */
-    .err { color: #b10000; }  /* Superseded / Void */
+    .ok { color: #0f893a; }   /* Final Approved */
+    .warn { color: #a86b00; } /* Review / Internal */
+    .err { color: #b10000; }  /* Superseded / Void 등 필요시 */
   </style>
 </head>
 
@@ -80,8 +80,9 @@
     <div id="infoBox" class="info-box" style="display:none;">
       <div><b>Drawing No:</b> <span id="dNo"></span></div>
       <div><b>Revision:</b> <span id="dRev"></span></div>
-      <div><b>Status:</b> <span id="dStatus"></span></div>
+      <div><b>Title:</b> <span id="dTitle"></span></div>
       <div><b>Current:</b> <span id="dCurrent"></span></div>
+      <div><b>Approved Date:</b> <span id="dApproved"></span></div>
     </div>
 
     <div class="pdf-wrap">
@@ -92,31 +93,39 @@
 
 <script>
 /* ------------------------------------------------
-   1. URL에서 id 값 가져오기 (viewer.html?id=95)
+   1. URL 파라미터에서 DrawingNo & Rev 읽기
+   예: viewer.html?no=305-1-C-CD-412-411&rev=2
 ------------------------------------------------ */
 const params = new URLSearchParams(window.location.search);
-const drawingId = params.get("id");
+const drawingNoParam = params.get("no");
+const revParam = params.get("rev");
 
-if (!drawingId) {
-  alert("⚠ 도면 ID가 전달되지 않았습니다. URL에 ?id=숫자를 붙여 주세요.");
+if (!drawingNoParam || !revParam) {
+  alert("⚠ URL에 ?no=도면번호&rev=리비전 형식으로 접근해야 합니다.");
 }
 
 /* ------------------------------------------------
-   2. DrawingsRegistry.json 로드
+   2. drawings.json 로드
 ------------------------------------------------ */
-fetch("DrawingsRegistry.json")
+fetch("drawings.json")
   .then(res => res.json())
   .then(json => {
-    const data = json.find(x => String(x.ID) === String(drawingId));
-    if (!data) {
-      alert("⚠ JSON에서 해당 도면(ID=" + drawingId + ")을 찾지 못했습니다.");
+    // DrawingNo + Rev 로 매칭
+    const found = json.find(x =>
+      String(x.DrawingNo) === String(drawingNoParam) &&
+      String(x.Rev)       === String(revParam)
+    );
+
+    if (!found) {
+      alert("⚠ JSON에서 해당 도면을 찾지 못했습니다.\nDrawingNo=" +
+            drawingNoParam + ", Rev=" + revParam);
       return;
     }
-    renderPage(data);
+    renderPage(found);
   })
   .catch(err => {
     console.error(err);
-    alert("JSON 로딩 중 오류가 발생했습니다.");
+    alert("drawings.json 로딩 중 오류가 발생했습니다.");
   });
 
 /* ------------------------------------------------
@@ -126,26 +135,31 @@ function renderPage(d) {
   // 메타데이터 표시
   const infoBox = document.getElementById("infoBox");
   infoBox.style.display = "block";
-  document.getElementById("dNo").textContent = d.DrawingNo ?? "-";
-  document.getElementById("dRev").textContent = d.Rev ?? "-";
-  document.getElementById("dStatus").textContent = d.Status ?? "-";
-  document.getElementById("dCurrent").textContent = d.Current ?? "-";
+  document.getElementById("dNo").textContent       = d.DrawingNo ?? "-";
+  document.getElementById("dRev").textContent      = d.Rev ?? "-";
+  document.getElementById("dTitle").textContent    = d.Title ?? "-";
+  document.getElementById("dCurrent").textContent  = (d.Current === true) ? "Yes" : "No";
+  document.getElementById("dApproved").textContent = d.ApprovedDate ?? "-";
 
-  // PDF URL
-  const pdfUrl = d.FileUrl || d.PDF || d.Path || "";
-  if (!pdfUrl) {
-    alert("⚠ PDF 파일 경로(FileUrl 또는 PDF/Path)를 JSON에 추가해야 합니다.");
-  }
+  // 📌 PDF URL 구성 (프로젝트 규칙에 맞게 수정해서 사용)
+  // 예시 1) 파일명이 DrawingNo_Rev.pdf 라고 가정:
+  //   /pdf/305-1-C-CD-412-411_Rev2.pdf
+  //
+  // 예시 2) SharePoint / GitHub Raw 경로 규칙에 맞게 변경
+  const basePdfPath = "./pdf/"; // TODO: 실제 경로로 바꿔줘
+  const fileName = `${d.DrawingNo}_Rev${d.Rev}.pdf`; // 예시 규칙
+  const pdfUrl = basePdfPath + encodeURIComponent(fileName);
+
   document.getElementById("pdfFrame").src = pdfUrl;
 
-  // 워터마크
+  // 워터마크 표시
   renderWatermark(d);
 }
 
 /* ------------------------------------------------
    4. 워터마크 로직
-   - Current = "Yes"  → "Final Approved for Construction"
-   - 그 외 Status 값에 따라 SUPERSEDED / VOID / FOR REVIEW / INTERNAL USE ONLY
+   - Current === true → "Final Approved for Construction"
+   - 그 외는 INTERNAL USE ONLY (필요시 더 분기 가능)
 ------------------------------------------------ */
 function renderWatermark(d) {
   const wm = document.getElementById("pdfWatermark");
@@ -153,27 +167,17 @@ function renderWatermark(d) {
   let text = "INTERNAL USE ONLY";
   let cls = "warn";
 
-  const status = (d.Status || "").toLowerCase();
-  const current = (d.Current || "").toLowerCase();
+  // Boolean / 문자열 모두 안전하게 처리
+  const currentBool =
+    (typeof d.Current === "boolean") ? d.Current :
+    String(d.Current).toLowerCase() === "true";
 
-  // ✅ 핵심 조건: Current = "Yes"
-  if (current === "yes") {
+  if (currentBool) {
     text = "Final Approved for Construction";
     cls = "ok";
-
-  } else if (status === "superseded") {
-    text = "SUPERSEDED";
-    cls = "err";
-
-  } else if (status === "void") {
-    text = "VOID";
-    cls = "err";
-
-  } else if (status.includes("review") || status.includes("draft")) {
-    text = "FOR REVIEW";
-    cls = "warn";
-
   } else {
+    // 필요하면 나중에 Status 값도 추가해서 분기 가능
+    // 예: d.Status === "Superseded" 이면 SUPERSEDED 등
     text = "INTERNAL USE ONLY";
     cls = "warn";
   }
