@@ -25,7 +25,6 @@
       font-weight: 700;
     }
 
-    /* 정보 박스 */
     .info-box {
       padding: 12px 16px;
       border: 1px solid #ddd;
@@ -35,7 +34,6 @@
     }
     .info-box div { margin: 4px 0; }
 
-    /* PDF Viewer */
     .pdf-wrap {
       position: relative;
       height: 82vh;
@@ -51,7 +49,6 @@
       border: none;
     }
 
-    /* 워터마크 레이어 */
     .pdf-watermark {
       position: absolute;
       top: 50%;
@@ -67,9 +64,9 @@
       text-align: center;
     }
 
-    .ok { color: #0f893a; }   /* Final Approved */
-    .warn { color: #a86b00; } /* Review / Internal */
-    .err { color: #b10000; }  /* Superseded / Void 등 필요시 */
+    .ok { color: #0f893a; }
+    .warn { color: #a86b00; }
+    .err { color: #b10000; }
   </style>
 </head>
 
@@ -92,25 +89,24 @@
   </div>
 
 <script>
-/* ------------------------------------------------
-   1. URL 파라미터에서 DrawingNo & Rev 읽기
-   예: viewer.html?no=305-1-C-CD-412-411&rev=2
------------------------------------------------- */
+// 1. URL 파라미터 (id = DrawingNo, rev = Revision)
 const params = new URLSearchParams(window.location.search);
-const drawingNoParam = params.get("no");
-const revParam = params.get("rev");
+const drawingNoParam = params.get("id");   // ← id 사용
+const revParam       = params.get("rev");
 
 if (!drawingNoParam || !revParam) {
-  alert("⚠ URL에 ?no=도면번호&rev=리비전 형식으로 접근해야 합니다.");
+  alert("⚠ URL에 ?id=도면번호&rev=리비전 형식으로 접근해야 합니다.");
 }
 
-/* ------------------------------------------------
-   2. drawings.json 로드
------------------------------------------------- */
+// 2. drawings.json 로드
 fetch("drawings.json")
-  .then(res => res.json())
+  .then(res => {
+    if (!res.ok) {
+      throw new Error("HTTP " + res.status + " (" + res.statusText + ")");
+    }
+    return res.json();
+  })
   .then(json => {
-    // DrawingNo + Rev 로 매칭
     const found = json.find(x =>
       String(x.DrawingNo) === String(drawingNoParam) &&
       String(x.Rev)       === String(revParam)
@@ -125,14 +121,11 @@ fetch("drawings.json")
   })
   .catch(err => {
     console.error(err);
-    alert("drawings.json 로딩 중 오류가 발생했습니다.");
+    alert("JSON 로딩 중 오류가 발생했습니다.\n\n" + err);
   });
 
-/* ------------------------------------------------
-   3. 메타데이터 / PDF 출력
------------------------------------------------- */
+// 3. 메타데이터 / PDF
 function renderPage(d) {
-  // 메타데이터 표시
   const infoBox = document.getElementById("infoBox");
   infoBox.style.display = "block";
   document.getElementById("dNo").textContent       = d.DrawingNo ?? "-";
@@ -141,45 +134,33 @@ function renderPage(d) {
   document.getElementById("dCurrent").textContent  = (d.Current === true) ? "Yes" : "No";
   document.getElementById("dApproved").textContent = d.ApprovedDate ?? "-";
 
-  // 📌 PDF URL 구성 (프로젝트 규칙에 맞게 수정해서 사용)
-  // 예시 1) 파일명이 DrawingNo_Rev.pdf 라고 가정:
-  //   /pdf/305-1-C-CD-412-411_Rev2.pdf
-  //
-  // 예시 2) SharePoint / GitHub Raw 경로 규칙에 맞게 변경
-  const basePdfPath = "./pdf/"; // TODO: 실제 경로로 바꿔줘
-  const fileName = `${d.DrawingNo}_Rev${d.Rev}.pdf`; // 예시 규칙
-  const pdfUrl = basePdfPath + encodeURIComponent(fileName);
+  // ⚠ 여기 PDF 경로는 네 규칙에 맞게 바꿔야 함
+  const basePdfPath = "./pdf/";  // 예: /swchp-qrdrawings/pdf/ 폴더
+  const fileName    = `${d.DrawingNo}_Rev${d.Rev}.pdf`;
+  const pdfUrl      = basePdfPath + encodeURIComponent(fileName);
 
   document.getElementById("pdfFrame").src = pdfUrl;
 
-  // 워터마크 표시
   renderWatermark(d);
 }
 
-/* ------------------------------------------------
-   4. 워터마크 로직
-   - Current === true → "Final Approved for Construction"
-   - 그 외는 INTERNAL USE ONLY (필요시 더 분기 가능)
------------------------------------------------- */
+// 4. 워터마크
 function renderWatermark(d) {
   const wm = document.getElementById("pdfWatermark");
 
   let text = "INTERNAL USE ONLY";
-  let cls = "warn";
+  let cls  = "warn";
 
-  // Boolean / 문자열 모두 안전하게 처리
   const currentBool =
     (typeof d.Current === "boolean") ? d.Current :
     String(d.Current).toLowerCase() === "true";
 
   if (currentBool) {
     text = "Final Approved for Construction";
-    cls = "ok";
+    cls  = "ok";
   } else {
-    // 필요하면 나중에 Status 값도 추가해서 분기 가능
-    // 예: d.Status === "Superseded" 이면 SUPERSEDED 등
     text = "INTERNAL USE ONLY";
-    cls = "warn";
+    cls  = "warn";
   }
 
   wm.textContent = text;
