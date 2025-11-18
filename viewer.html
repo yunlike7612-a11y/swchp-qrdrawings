@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drawing Viewer</title>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      background: #fafafa;
+      color: #222;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      font-weight: 700;
+    }
+
+    /* PDF Viewer */
+    .pdf-wrap {
+      position: relative;
+      height: 82vh;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .pdf-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Watermark Layer */
+    .pdf-watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-25deg);
+      font-size: 42px;
+      font-weight: 800;
+      opacity: 0.13;
+      pointer-events: none;
+      white-space: nowrap;
+      user-select: none;
+      letter-spacing: 3px;
+    }
+
+    .ok { color: #0f893a; }   /* Controlled / Current */
+    .warn { color: #a86b00; } /* Review / Draft */
+    .err { color: #b10000; }  /* Superseded / Void */
+
+    /* Info Box */
+    .info-box {
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      margin-bottom: 20px;
+    }
+    .info-box div { margin: 4px 0; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Drawing Viewer</h1>
+
+    <div id="infoBox" class="info-box" style="display:none;">
+      <div><b>Drawing No:</b> <span id="dNo"></span></div>
+      <div><b>Revision:</b> <span id="dRev"></span></div>
+      <div><b>Status:</b> <span id="dStatus"></span></div>
+      <div><b>Current:</b> <span id="dCurrent"></span></div>
+    </div>
+
+    <div class="pdf-wrap">
+      <iframe id="pdfFrame" src="" title="PDF Viewer"></iframe>
+      <div id="pdfWatermark" class="pdf-watermark">LOADING</div>
+    </div>
+  </div>
+
+<script>
+/* ------------------------------------------------
+   1. URL에서 id 값 가져오기
+------------------------------------------------ */
+const params = new URLSearchParams(window.location.search);
+const drawingId = params.get("id");  // viewer.html?id=95 형태
+
+if (!drawingId) {
+  alert("⚠ 도면 ID가 전달되지 않았습니다. ?id=숫자 형태로 접근해야 합니다.");
+}
+
+/* ------------------------------------------------
+   2. JSON에서 데이터 로드
+------------------------------------------------ */
+fetch("DrawingsRegistry.json")
+  .then(res => res.json())
+  .then(json => {
+    const data = json.find(x => x.ID == drawingId);
+    if (!data) {
+      alert("⚠ JSON에서 해당 도면을 찾지 못했습니다.");
+      return;
+    }
+    renderPage(data);
+  })
+  .catch(err => {
+    console.error(err);
+    alert("
